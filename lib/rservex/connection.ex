@@ -2,11 +2,13 @@ defmodule Rservex.Connection do
   @cmd_eval 3
   @dt_string 4
 
+  @doc """
+  check if the response has a valid format according: https://www.rforge.net/Rserve/dev.html
+  """
   @spec check_ack(port()) :: {:error, :invalid_ack} | {:ok, port()}
   def check_ack(conn) do
     {:ok, msg} = :gen_tcp.recv(conn, 32)
-    # check if the response has a valid format
-    # doc: https://www.rforge.net/Rserve/dev.html
+
     case msg do
       <<"Rsrv", _version::size(32), _protocolor::size(32), _extra::binary>> ->
         {:ok, conn}
