@@ -3,6 +3,8 @@
 `Rservex` is an under-development client for [Rserve](https://www.rforge.net/Rserve/index.html). 
 Aiming to enable the R <--> Elixir interoperation.
 
+`Rservex` is Heavily inspired in [Erserve](https://github.com/del/erserve)
+
 ## Current State
 
 Currentle `Rservex` can:
