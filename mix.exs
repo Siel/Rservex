@@ -19,7 +19,7 @@ defmodule Rservex.MixProject do
 
   defp package do
     [
-      name: "Rservex",
+      name: "rservex",
       maintainers: ["Julian Otalvaro"],
       licenses: ["Apache 2.0"],
       links: %{github: "https://github.com/siel/rservex"}
@@ -35,6 +35,8 @@ defmodule Rservex.MixProject do
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
-    []
+    [
+      {:ex_doc, ">= 0.0.0", only: :dev}
+    ]
   end
 end
