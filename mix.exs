@@ -7,7 +7,22 @@ defmodule Rservex.MixProject do
       version: "0.1.0",
       elixir: "~> 1.8",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      description: description(),
+      package: package()
+    ]
+  end
+
+  defp description() do
+    "Rservex is an under-development client for Rserve. Aiming to enable the R <--> Elixir interoperation."
+  end
+
+  defp package do
+    [
+      name: "Rservex",
+      maintainers: ["Julian Otalvaro"],
+      licenses: ["Apache 2.0"],
+      links: %{github: "https://github.com/siel/rservex"}
     ]
   end
 
