@@ -1,6 +1,14 @@
 defmodule Rservex.Connection do
   @cmd_eval 3
   @dt_string 4
+  # define CMD_RESP 0x10000  /* all responses have this flag set */
+  # define RESP_OK (CMD_RESP|0x0001) /* command succeeded; returned parameters depend on the command issued */
+  # define RESP_ERR (CMD_RESP|0x0002) /* command failed, check stats code attached string may describe the error */
+  @resp_ok 0x10001
+  @resp_err 0x10002
+
+  # all int and double entries throughout the transfer are encoded in Intel-endianess format:
+  # int=0x12345678 -> char[4]=(0x78,0x56,x34,0x12)
 
   @doc """
   check if the response has a valid format according: https://www.rforge.net/Rserve/dev.html
@@ -18,10 +26,46 @@ defmodule Rservex.Connection do
     end
   end
 
-  @spec send_message(port(), binary(), atom()) :: atom()
+  @spec send_message(port(), any(), :eval) ::
+          {:error, atom()} | {:ok, {:error, atom()} | {:ok, any()}}
   def send_message(conn, data, type) do
     message = encode_message(data, type)
-    :gen_tcp.send(conn, message)
+
+    case :gen_tcp.send(conn, message) do
+      :ok ->
+        receive_reply(conn)
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  def receive_reply(conn) do
+    # recv(Socket, Length, Timeout)
+    # Argument Length is only meaningful when the socket is in raw mode and denotes the number of bytes to read. If Length is 0, all available bytes are returned. If Length > 0, exactly Length bytes are returned
+    {:ok, header} = :gen_tcp.recv(conn, 16)
+
+    <<cmd_resp::little-32, length_low::little-32, _offset::little-32, length_high::little-32>> =
+      header
+
+    # The CMD_RESP mask is set for all responses. Each response consists of the response command (RESP_OK or RESP_ERR - least significant 24 bit) and the status code (most significant 8 bits).
+    case cmd_resp do
+      @resp_ok ->
+        # left shift
+        length = length_low + :erlang.bsl(length_high, 31)
+        {:ok, receive_data(conn, length)}
+
+      @resp_err ->
+        # TODO: read error content
+        {:error, :resp_err}
+
+      _ ->
+        raise("Unkwnown CMD_RESP")
+    end
+  end
+
+  def receive_data(conn, len) do
+    :gen_tcp.recv(conn, len)
   end
 
   def encode_message(data, :eval) do
@@ -41,7 +85,6 @@ defmodule Rservex.Connection do
   # 'offset' specifies the offset of the data part, where 0 means directly after the header (which is normally the case)
   # 'length2' high bits of the length (must be 0 if the packet size is smaller than 4GB)
 
-  @spec header(integer(), integer()) :: <<_::128>>
   def header(command, length) do
     <<command::little-32, length::little-32, 0::little-32, 0::little-32>>
   end
