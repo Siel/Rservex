@@ -15,6 +15,13 @@ Currentle `Rservex` can:
 
 ## Example
 
+In R:
+```r
+library(Rserve)
+Rserve()
+```
+
+In Elixir:
 ```elixir
 iex(1)> conn = Rservex.open()                  
 
