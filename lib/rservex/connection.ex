@@ -127,13 +127,12 @@ defmodule Rservex.Connection do
   def receive_arr_str(conn, length) do
     {:ok, data} = :gen_tcp.recv(conn, length)
 
-    # Hacky code, only test purposes
+    # IO.inspect(data)
+
     response =
       data
-      |> String.replace(<<1>>, "")
-      |> String.replace(<<0>>, "")
-      |> String.codepoints()
-      |> List.to_string()
+      |> String.replace(<<0, 1>>, "")
+      |> String.split(<<0>>)
 
     {:xt_arr_str, response}
   end
