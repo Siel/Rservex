@@ -7,6 +7,10 @@ defmodule Rservex.Connection do
   @resp_ok 0x10001
   @resp_err 0x10002
 
+  @dt_sexp 10
+
+  @xt_arr_str 34
+
   # all int and double entries throughout the transfer are encoded in Intel-endianess format:
   # int=0x12345678 -> char[4]=(0x78,0x56,x34,0x12)
 
@@ -24,6 +28,10 @@ defmodule Rservex.Connection do
       _ ->
         {:error, :invalid_ack}
     end
+  end
+
+  def clear_buffer(conn) do
+    :gen_tcp.recv(conn, 0, 1000)
   end
 
   @spec send_message(port(), any(), :eval) ::
@@ -53,20 +61,85 @@ defmodule Rservex.Connection do
       @resp_ok ->
         # left shift
         length = length_low + :erlang.bsl(length_high, 31)
-        {:ok, receive_data(conn, length)}
+        receive_data(conn, length)
 
       @resp_err ->
         # TODO: read error content
         {:error, :resp_err}
 
-      _ ->
-        raise("Unkwnown CMD_RESP")
+      resp_code ->
+        IO.inspect(header)
+        IO.inspect(length_low)
+        # IO.inspect(:gen_tcp.recv(conn, 0, 1000))
+        raise("Unkwnown CMD_RESP: " <> inspect(resp_code))
     end
   end
 
   def receive_data(conn, len) do
-    :gen_tcp.recv(conn, len)
+    case Enum.reverse(receive_data(conn, len, [])) do
+      # Only one value received
+      [val] ->
+        val
+
+      # multiple values received
+      list ->
+        list
+    end
   end
+
+  def receive_data(_conn, 0, acc) do
+    acc
+  end
+
+  def receive_data(conn, len, acc) do
+    {:ok, data_header} = :gen_tcp.recv(conn, 4)
+    <<item_type::little-8, item_length::little-24>> = data_header
+    item = receive_item(conn, item_type)
+    acc = [item | acc]
+    receive_data(conn, len - 4 - item_length, acc)
+  end
+
+  # R SEXP value (DT_SEXP) are recursively encoded in a similar way as the parameter attributes. Each SEXP consists of a 4-byte header and the actual contents. The header is of the form:
+  # [0]  (byte) eXpression Type
+  # [1]  (24-bit int) length
+  def receive_item(conn, @dt_sexp) do
+    {:ok, sexp_header} = :gen_tcp.recv(conn, 4)
+    <<sexp_type::little-8, sexp_length::little-24>> = sexp_header
+    receive_sexp(conn, sexp_type, sexp_length)
+  end
+
+  # The expression type consists of the actual type (least significant 6 bits) and attributes.
+  # define XT_ARRAY_STR     34 /* P  data: string,string,.. (string=byte,byte,...,0) padded with '\01' */
+  def receive_sexp(conn, @xt_arr_str, length) do
+    receive_arr_str(conn, length)
+  end
+
+  def receive_sexp(conn, type, length) do
+    IO.inspect(type)
+    IO.inspect(length)
+    clear_buffer(conn)
+  end
+
+  def receive_arr_str(_conn, 0) do
+    {:xt_arr_str, ""}
+  end
+
+  def receive_arr_str(conn, length) do
+    {:ok, data} = :gen_tcp.recv(conn, length)
+
+    # Hacky code, only test purposes
+    response =
+      data
+      |> String.replace(<<1>>, "")
+      |> String.replace(<<0>>, "")
+      |> String.codepoints()
+      |> List.to_string()
+
+    {:xt_arr_str, response}
+  end
+
+  # command           parameters            | response data
+  # CMD_eval          DT_STRING or DT_SEXP  | DT_SEXP
 
   def encode_message(data, :eval) do
     body = dt(data, :string)
