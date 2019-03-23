@@ -45,7 +45,7 @@ by adding `rservex` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:rservex, "~> 0.1.0"}
+    {:rservex, "~> 0.1.2"}
   ]
 end
 ```
