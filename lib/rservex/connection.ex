@@ -132,11 +132,15 @@ defmodule Rservex.Connection do
       |> String.replace(<<0, 1>>, "")
       |> String.split(<<0>>)
 
+    # SUPER HACKY IMPLEMENTATION
     response =
       case response do
         [response] ->
           response
           |> String.replace(<<1>>, "")
+
+        [response, ""] ->
+          response
 
         response ->
           response
